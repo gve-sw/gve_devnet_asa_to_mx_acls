@@ -1,0 +1,10 @@
+# Virtual Environment
+/venv
+
+.idea/
+
+__pycache__/
+
+# Input and Output files
+*.txt
+!requirements.txt

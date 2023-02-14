@@ -1,0 +1,16 @@
+[
+  {
+    "id": "vlan id",
+    "name": "vlan name",
+    "subnet": "subnet/mask",
+    "applianceIp": "appliance ip",
+    "groupPolicyId": "group policy id"
+  },
+    {
+    "id": "vlan id",
+    "name": "vlan name",
+    "subnet": "subnet/mask",
+    "applianceIp": "appliance ip",
+    "groupPolicyId": "group policy id"
+  }
+]

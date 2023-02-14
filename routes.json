@@ -1,0 +1,12 @@
+[
+  {
+    "name": "subnet 1",
+    "subnet": "subnet/mask",
+    "gatewayIp": "gateway ip"
+  },
+    {
+    "name": "subnet 2",
+    "subnet": "subnet/mask",
+    "gatewayIp": "gateway ip"
+  }
+]
