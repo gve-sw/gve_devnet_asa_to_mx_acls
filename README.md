@@ -1,6 +1,7 @@
 # ASA ACL to Meraki MX Conversion
 
-This script takes a Cisco ASA ACL and converts the rules into compatible Meraki MX Rules. It'll build iterative or multi-source/multi-destination L3 based rules, and optionally will build out 1-1 NAT rules and L7 Deny Rules for outside -> inside rule sets. 
+This script takes a Cisco ASA **Named** **Extended** ACL's and converts the rules into compatible Meraki MX Rules. It'll build iterative or multi-source/multi-destination L3 based rules, and optionally will build out 1-1 NAT rules and L7 Deny Rules for outside -> inside rule sets. 
+
 The choice of 1-1 NAT rules and L7 Deny rules assumes Inbound Rules are **NOT** enabled on the MX.
 
 Supported ASA constructs: 
@@ -79,6 +80,8 @@ where _show-run-file.txt_ and _show-access-list-file.txt_ are the `show run` and
 2. Optionally, you may specify `-v vlans.json` and/or `-s routes.json` if you'd like to configure your VLANs and Static routes in those files instead of the Meraki Dashboard. Please consult those files for proper formatting and examples.
 
 3. The code will also prompt asking if you'd like `any translation` enabled. This feature translates source address 'any' into a subnet/group of subnets based on the subnet of the original ASA interface the ACL is attached to and any ASA routes configured. This is useful if you are importing multiple ACLs or have several subnets statically routed to a single interface to maintain the original ASA logic.
+
+**Warning**: Any translation only works if the ACL's are attached to an interface with an IP Address assigned or a route is defined.
 
 Once you start the script, it will begin creating ASA Objects for the MX, reading in the ACL Rules, translating the rules, and applying them to the Meraki MX Network.
 

@@ -30,6 +30,7 @@ import meraki
 from config import *
 
 from socket import getservbyname
+import ipaddress
 
 from ciscoconfparse import CiscoConfParse
 
@@ -111,36 +112,36 @@ SUBNET_MASKS = {
 regex_patterns = [
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) (?P<dst_subnet>\d+.\d+.\d+.\d+) (?P<dst_mask>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) host (?P<dst_ip>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) (?P<dst_ip>any4)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) (?P<dst_ip>any4|any)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) fqdn (?P<dst_fqdn>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) object (?P<dst_obj>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_subnet>\d+.\d+.\d+.\d+) (?P<src_mask>\d+.\d+.\d+.\d+) object-group (?P<dst_obj_group>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
 
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) host (?P<dst_ip>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) (?P<dst_subnet>\d+.\d+.\d+.\d+) (?P<dst_mask>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) (?P<dst_ip>any4)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) (?P<dst_ip>any4|any)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) fqdn (?P<dst_fqdn>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) object (?P<dst_obj>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) host (?P<src_ip>\d+.\d+.\d+.\d+) object-group (?P<dst_obj_group>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
 
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) host (?P<dst_ip>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) (?P<dst_subnet>\d+.\d+.\d+.\d+) (?P<dst_mask>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) (?P<dst_ip>any4 (echo|echo-reply|time-exceeded|unreachable))((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) (?P<dst_ip>any4)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) fqdn (?P<dst_fqdn>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) object (?P<dst_obj>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4) object-group (?P<dst_obj_group>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) host (?P<dst_ip>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) (?P<dst_subnet>\d+.\d+.\d+.\d+) (?P<dst_mask>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) (?P<dst_ip>any4|any) ((echo|echo-reply|time-exceeded|unreachable))((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) (?P<dst_ip>(any4|any))((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) fqdn (?P<dst_fqdn>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) object (?P<dst_obj>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) (?P<src_ip>any4|any) object-group (?P<dst_obj_group>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
 
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) (?P<dst_subnet>\d+.\d+.\d+.\d+) (?P<dst_mask>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) host (?P<dst_ip>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) (?P<dst_ip>any4)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) (?P<dst_ip>any4|any)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) fqdn (?P<dst_fqdn>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) object (?P<dst_obj>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object (?P<src_obj>\S+) object-group (?P<dst_obj_group>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
 
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) (?P<dst_subnet>\d+.\d+.\d+.\d+) (?P<dst_mask>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) host (?P<dst_ip>\d+.\d+.\d+.\d+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
-    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) (?P<dst_ip>any4)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
+    r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) (?P<dst_ip>any4|any)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) fqdn (?P<dst_fqdn>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) object (?P<dst_obj>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
     r'access-list (?P<acl_name>.*) line (?P<line_number>\d+) extended (?P<action>\w+) ((?:object-group\s(?P<protocol_group>\S+))|(?P<protocol>\w+)) object-group (?P<src_obj_group>\S+) object-group (?P<dst_obj_group>\S+)((?:\sobject-group\s(?P<dst_port_group>\S+))|(?:\seq\s(?P<dst_port>[\w-]+-[\w-]+|[\w-]+))|(?:\srange\s(?P<dst_port_range>[\w-]+ [\w-]+)))?',
@@ -179,9 +180,10 @@ NAT_FLAG = False
 ANY_FLAG = False
 
 
-def build_mx_object(org_id, object_type, element):
+def build_mx_object(org_id, print_console, object_type, element):
     """
     Process individual object from show run config file, individual processing determined based on object type.
+    :param print_console: print status messages to console
     :param org_id: meraki org id
     :param object_type: type of object we are processing
     :param element: object we are processing
@@ -237,6 +239,7 @@ def build_mx_object(org_id, object_type, element):
                 mx_object['cidr'] = content[1] + '/' + SUBNET_MASKS[content[2]]
             elif content[0] == 'range':
                 # Ranges not support in Meraki, ignoring
+                print_console.print('[red]Ranges not supported in Meraki... skipping.[/]')
                 return None
             elif content[0] == 'fqdn':
                 mx_object['type'] = 'fqdn'
@@ -274,6 +277,7 @@ def build_mx_object(org_id, object_type, element):
 
                     # Invalid object that was unsupported before, won't be in group
                     if content[2] not in objects:
+                        print_console.print('[red]Group contains invalid object... skipping.[/]')
                         return None
 
                     object_id = objects[content[2]]
@@ -384,7 +388,18 @@ def build_mx_object(org_id, object_type, element):
             if content[0] == 'nameif':
                 mx_object['name'] = content[1]
             elif content[0] == 'ip':
-                mx_object['cidr'] = content[2] + '/' + SUBNET_MASKS[content[3]]
+
+                # Validate Network and Subnet as valid IP's
+                try:
+                    # Value error thrown if invalid IP
+                    net_object = ipaddress.ip_address(content[2])
+                    mask_obj = ipaddress.ip_address(content[3])
+
+                    mx_object['cidr'] = content[2] + '/' + SUBNET_MASKS[content[3]]
+                except ValueError:
+                    print_console.print(f'[red] Invalid interface IP/Subnet... skipping. [/]')
+                    return None
+
     # Build route objects (not a native Meraki object, custom object)
     elif object_type == 'route':
         line = element.text.replace('route ', '')
@@ -425,12 +440,12 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in solo_objects:
-            # Construct post body
-            mx_object = build_mx_object(org_id, 'object', element)
-
             progress.console.print(
                 "Processing object: [blue]'{}'[/] ({} of {})".format(element.text.replace('object network ', ''),
                                                                      str(counter), solo_object_count))
+
+            # Construct post body
+            mx_object = build_mx_object(org_id, progress.console, 'object', element)
 
             # Error building object (likely not supported) if this skips
             if mx_object:
@@ -473,13 +488,13 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in group_objects:
-            # Construct post body
-            mx_object = build_mx_object(org_id, 'group', element)
-
             progress.console.print(
                 "Processing object: [blue]'{}'[/] ({} of {})".format(
                     element.text.replace('object-group network ', ''),
                     str(counter), group_objects_count))
+
+            # Construct post body
+            mx_object = build_mx_object(org_id, progress.console, 'group', element)
 
             # Error building object (likely not supported) if this skips
             if mx_object:
@@ -513,12 +528,12 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in service_groups:
-            service_object = build_mx_object(org_id, 'service', element)
-
             progress.console.print(
                 "Processing object: [blue]'{}'[/] ({} of {})".format(
                     element.text.replace('object-group service ', ''),
                     str(counter), service_groups_count))
+
+            service_object = build_mx_object(org_id, progress.console, 'service', element)
 
             if service_object:
                 if 'ports' in service_object:
@@ -540,12 +555,12 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in objects_protocols:
-            protocol_object = build_mx_object(org_id, 'protocol', element)
-
             progress.console.print(
                 "Processing object: [blue]'{}'[/] ({} of {})".format(
                     element.text.replace('object-group protocol ', ''),
                     str(counter), objects_protocols_count))
+
+            protocol_object = build_mx_object(org_id, progress.console, 'protocol', element)
 
             if protocol_object:
                 # Build protocol dictionary
@@ -566,11 +581,11 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in interface_groups:
-            interface_object = build_mx_object(org_id, 'interface', element)
-
             progress.console.print(
                 "Processing interface: [blue]'{}'[/] ({} of {})".format(element.text.replace('interface ', ''),
                                                                         str(counter), interface_groups_count))
+
+            interface_object = build_mx_object(org_id, progress.console, 'interface', element)
 
             if interface_object and len(interface_object) > 0:
                 # Build interface dictionary
@@ -591,11 +606,12 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in routes_objects:
-            routes_object = build_mx_object(org_id, 'route', element)
-
             progress.console.print(
                 "Processing object: [blue]'{}'[/] ({} of {})".format(element.text.replace('route ', ''),
                                                                      str(counter), routes_count))
+
+            routes_object = build_mx_object(org_id, progress.console, 'route', element)
+
             if routes_object:
                 if routes_object['name'] in routes:
                     routes[routes_object['name']].append(routes_object['cidr'])
@@ -617,11 +633,11 @@ def create_objects(org_id, parse):
         counter = 1
 
         for element in access_groups:
-            access_object = build_mx_object(org_id, 'access-group', element)
-
             progress.console.print(
                 "Processing object: [blue]'{}'[/] ({} of {})".format(element.text.replace('access-group ', ''),
                                                                      str(counter), access_groups_count))
+
+            access_object = build_mx_object(org_id, progress.console, 'access-group', element)
 
             # Don't add nat_acls to any translation (this doesn't make sense)
             if access_object and access_object['name'] not in ACL_TYPES['nat_set']:
@@ -642,11 +658,11 @@ def parse_line(line):
     global CURRENT_REMARK, ANY_FLAG, NAT_FLAG
 
     # Strip leading spaces and newlines
-    line = line.strip("")
+    line = line.strip()
 
     # Skip Inactive Lines!
     if "inactive" in line:
-        return None
+        return 'Inactive rules not allowed in Meraki'
 
     # Remark functionality
     if "remark" in line:
@@ -660,7 +676,7 @@ def parse_line(line):
             if content not in CURRENT_REMARK:
                 CURRENT_REMARK += content if CURRENT_REMARK == "" else " + " + content
 
-            return {}
+            return 'Adding remark to ACL Rule'
 
     for pattern in regex_patterns:
         match = re.search(pattern, line)
@@ -681,19 +697,19 @@ def parse_line(line):
             if 'protocol_group' in acl and acl['protocol_group']:
                 # NAT rules don't support protocol groups
                 if NAT_FLAG:
-                    return None
+                    return "NAT Rules don't support protocol groups"
 
                 if acl['protocol_group'] in protocol_objects:
                     protocols = protocol_objects[acl['protocol_group']]
                     acl["protocol"] = protocols
                 else:
-                    return None
+                    return "Protocol group not found in local list"
 
             # src ip processing (host, any, object, object group, group-of-groups)
             if "src_ip" in acl:
 
                 # Convert any4 to any or special translation (using 'any' table)
-                if acl["src_ip"] == "any4":
+                if acl["src_ip"] == "any4" or acl["src_ip"] == "any":
                     if acl["acl_name"] in any_translation and ANY_FLAG:
                         acl["src"] = ','.join(any_translation[acl['acl_name']])
                     else:
@@ -711,7 +727,7 @@ def parse_line(line):
             elif "src_obj" in acl:
                 # NAT rules don't support objects
                 if NAT_FLAG:
-                    return None
+                    return "NAT Rules don't support objects"
 
                 acl["src_obj"] = acl["src_obj"].replace('.', '_')
 
@@ -720,13 +736,13 @@ def parse_line(line):
                     obj_id = objects[acl["src_obj"]]
                     acl["src"] = f"OBJ[{obj_id}]"
                 else:
-                    return None
+                    return "Object not found in local list"
 
             # Object group case
             elif "src_obj_group" in acl:
                 # NAT rules don't support object groups
                 if NAT_FLAG:
-                    return None
+                    return "NAT Rules don't support object groups."
 
                 acl["src_obj_group"] = acl["src_obj_group"].replace('.', '_')
 
@@ -739,17 +755,17 @@ def parse_line(line):
                     obj_list = group_of_groups[acl["src_obj_group"]]
                     acl["src"] = [f"GRP[{obj}]" for obj in obj_list]
                 else:
-                    return None
+                    return "Object group not found in local list"
 
             # dst ip processing (host, fqdn, any, object, object group)
             if "dst_ip" in acl:
                 # Convert any4 to any
-                if acl["dst_ip"] == "any4":
+                if acl["dst_ip"] == "any4" or acl["dst_ip"] == "any":
                     acl["dst"] = "any"
                 # Special case of sub icmp flows (Meraki only supports allow or deny, can't specify sub flows)
                 elif "echo" in acl["dst_ip"] or "echo-reply" in acl["dst_ip"] or "time-exceeded" in acl[
                     "dst_ip"] or "unreachable" in acl["dst_ip"]:
-                    return None
+                    return "Meraki doesn't support specifying specific ICMP flows"
                 else:
                     # host case
                     acl["dst"] = acl["dst_ip"] + "/32"
@@ -760,13 +776,13 @@ def parse_line(line):
             elif "dst_fqdn" in acl:
                 # NAT rules don't support fqdn
                 if NAT_FLAG:
-                    return None
+                    return "NAT rules don't support FQDN"
                 acl["dst"] = acl["dst_fqdn"]
             # Object case
             elif "dst_obj" in acl:
                 # NAT rules don't support objects
                 if NAT_FLAG:
-                    return None
+                    return "NAT Rules don't support objects"
 
                 acl["dst_obj"] = acl["dst_obj"].replace('.', '_')
 
@@ -775,12 +791,12 @@ def parse_line(line):
                     obj_id = objects[acl["dst_obj"]]
                     acl["dst"] = f"OBJ[{obj_id}]"
                 else:
-                    return None
+                    return "Object not found in local list"
 
             elif "dst_obj_group" in acl:
                 # NAT rules don't support object groups
                 if NAT_FLAG:
-                    return None
+                    return "NAT rules don't support object groups"
 
                 acl["dst_obj_group"] = acl["dst_obj_group"].replace('.', '_')
 
@@ -793,7 +809,7 @@ def parse_line(line):
                     obj_list = group_of_groups[acl["dst_obj_group"]]
                     acl["dst"] = obj_list
                 else:
-                    return None
+                    return "Object group not found in local list"
 
             # dst port processing
             # ranges case
@@ -812,13 +828,18 @@ def parse_line(line):
             elif "dst_port" in acl and acl['dst_port']:
                 # translate port names
                 if not acl["dst_port"].isdigit():
-                    acl["dst_port"] = str(getservbyname(acl["dst_port"]))
+
+                    # If service not defined on system, method call fails
+                    try:
+                        acl["dst_port"] = str(getservbyname(acl["dst_port"]))
+                    except OSError:
+                        return f'{acl["dst_port"]} port not defined on system!'
 
             # Port group case
             elif "dst_port_group" in acl and acl['dst_port_group']:
                 # NAT rules don't support port groups
                 if NAT_FLAG:
-                    return None
+                    return "NAT rules don't support port groups"
 
                 if acl['dst_port_group'] in port_groups:
                     ports = port_groups[acl['dst_port_group']]
@@ -828,18 +849,18 @@ def parse_line(line):
 
                     acl["dst_port"] = [comma_list, range_list]
                 else:
-                    return None
+                    return "Port group not found in local list"
 
             # Found Match, applied current remark, reset remark variable
             CURRENT_REMARK = ""
 
             # Ignore default any, any, any, any rules (if not doing any translation)
             if not ANY_FLAG and acl['protocol'] == 'ip' and acl["src"] == "any" and acl["dst"] == "any":
-                return None
+                return "Default any any rules ignored. Please recreate manually in Meraki dashboard"
 
             return acl
 
-    return None
+    return "Invalid line"
 
 
 def parse_rules(config_file_name):
@@ -876,24 +897,34 @@ def parse_rules(config_file_name):
                     # or nat rule)
                     acl_line = parse_line(line)
 
-                    if acl_line is None:
-                        # Write un-processable rules to file
-                        broken_fp.write(line)
+                    # If returned type is not a dict, then something failed during line processing
+                    if not type(acl_line) is dict:
 
-                        # Process any children elements under the failed line
-                        CHILD_FLAG = True
+                        # Remark case
+                        if 'remark' in acl_line:
+                            progress.console.print(
+                                "Processing Remark line: [green]'{}'[/] ({} of {}) -> {}".format(line.strip(),
+                                                                                              str(counter),
+                                                                                              rule_count, acl_line))
+                        else:
+                            # Write un-processable rules to file
+                            broken_fp.write(line)
 
-                        progress.console.print(
-                            "Error Processing line: [red]'{}'[/] ({} of {})".format(line.strip(), str(counter),
-                                                                                    rule_count))
+                            # Process any children elements under the failed line
+                            CHILD_FLAG = True
+
+                            progress.console.print(
+                                "Error Processing line: [red]'{}'[/] ({} of {}) -> {}".format(line.strip(), str(counter),
+                                                                                        rule_count, acl_line))
+
                     # Add to outbound acl rule set
-                    elif len(acl_line) > 0 and acl_line['acl_name'] in ACL_TYPES['outbound_set']:
+                    elif acl_line['acl_name'] in ACL_TYPES['outbound_set']:
                         acl_list.append(acl_line)
                         progress.console.print(
                             "Processing Outbound line: [green]'{}'[/] ({} of {})".format(line.strip(), str(counter),
                                                                                          rule_count))
                     # Add to nat acl rule set
-                    elif len(acl_line) > 0 and acl_line['acl_name'] in ACL_TYPES['nat_set']:
+                    elif acl_line['acl_name'] in ACL_TYPES['nat_set']:
                         nat_acl_list.append(acl_line)
                         progress.console.print(
                             "Processing NAT line: [green]'{}'[/] ({} of {})".format(line.strip(), str(counter),
@@ -1082,7 +1113,7 @@ def create_nat_rules(org_id, network_id, nat_acl_list):
                 deny_rules.append(acl)
 
             # Skip dst == any (Meraki doesn't support specifying 'any' destination for NAT rule)
-            if acl['dst_ip'] == 'any4':
+            if acl['dst_ip'] == 'any4' or acl["dst_ip"] == "any":
                 continue
 
             # Determine nat rule name
@@ -1231,7 +1262,7 @@ def main():
     # Determine if 'any' translation must be done
     answer = Confirm.ask(
         "Does your ACL require 'any' source translation? (Example use case: static routes exposing internal VLANs on "
-        "a single interface)", default=True)
+        "a single interface)", default=False)
     if answer:
         ANY_FLAG = True
 
